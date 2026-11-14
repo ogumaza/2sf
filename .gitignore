@@ -1,0 +1,9 @@
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+*_2sf/
+__pycache__/
+.DS_Store
+.vscode/
+.idea/
