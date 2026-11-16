@@ -62,8 +62,8 @@ bool Matches(const ntdlib::ntr::Rom& rom, const Routine& routine)
     return std::equal(bytes.begin(), bytes.end(), routine.start.begin());
 }
 
-// Whether the ARM9 binary starts with 0xE7FFDEFF twice, as it does once the secure area is decrypted. The stub runs the
-// game's start-up, which the encrypted area would crash.
+} // namespace
+
 bool SecureAreaDecrypted(const ntdlib::ntr::Rom& rom)
 {
     const std::span<const uint8_t> binary = rom.Arm9();
@@ -71,8 +71,6 @@ bool SecureAreaDecrypted(const ntdlib::ntr::Rom& rom)
     return binary.size() >= 8 && xsflib::LoadLe32(binary.data()) == kDecryptedMarker &&
            xsflib::LoadLe32(binary.data() + 4) == kDecryptedMarker;
 }
-
-} // namespace
 
 const UniversomoProfile* FindProfile(const ntdlib::ntr::Rom& rom, std::string& error)
 {

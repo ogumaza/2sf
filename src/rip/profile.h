@@ -70,6 +70,10 @@ struct UniversomoProfile
 // from the profile's.
 const UniversomoProfile* FindProfile(const ntdlib::ntr::Rom& rom, std::string& error);
 
+// Whether the ARM9 binary starts with 0xE7FFDEFF twice, as it does once the secure area is decrypted. A set runs the
+// game's start-up, which the encrypted area would crash.
+bool SecureAreaDecrypted(const ntdlib::ntr::Rom& rom);
+
 // The game codes of the games that 2sfrip supports.
 std::vector<std::string_view> SupportedGames();
 

@@ -35,8 +35,14 @@ bool Player::StartSource()
     machine_.reset();
     samples_.clear();
 
-    // The parsed image points into the set's bytes. The set stays as it is until the next Load.
-    rom_ = ntdlib::ntr::Rom::Parse(set_.image);
+    // The parsed image points into the set's bytes. The set stays as it is until the next Load. A set's image is often
+    // shorter than the header and the FAT state. The bytes past the end read as zeros, like the gaps between the
+    // blocks. The ripper keeps the strict parse.
+    rom_ = ntdlib::ntr::Rom::ParsePartial(set_.image);
+    if (rom_->Arm9().empty() || rom_->Arm7().empty())
+    {
+        return Fail(kNoCode);
+    }
     machine_ = std::make_unique<ntdlib::ntr::Machine>(*rom_);
 
     return true;

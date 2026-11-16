@@ -17,6 +17,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -34,6 +35,7 @@
 
 #include "rip/profile.h"
 #include "rip/set.h"
+#include "tools/sdat_rip.h"
 
 namespace
 {
@@ -49,12 +51,14 @@ constexpr char kUsage[] =
     "game's image, cut to what the music reads, with a stub that starts the song whose number the mini\n"
     "stores. The game's sound driver plays it.\n"
     "\n"
-    "Games: Beat City (USA).\n"
+    "Games: Beat City (USA), and games on the SDK's sound archives (SDAT) whose sound routines 2sfrip\n"
+    "finds, such as The Legend of Zelda: Phantom Hourglass (USA) and Spirit Tracks (USA, Europe).\n"
+    "2sfrip runs every mini of such a game on its model of the DS, and refuses the game when one fails.\n"
     "\n"
     "options:\n"
     "  -o, --output DIR     put the rips in DIR\n"
     "  --list               list the songs, then stop\n"
-    "  --only REGEX         rip only the songs whose name, such as \"Song 81\", or title matches\n"
+    "  --only REGEX         rip only the songs whose name, such as \"Song 81\" or \"SEQ_12\", or title matches\n"
     "  --effects            rip the sound effects too\n"
     "  --bgm                rip only the music (the default)\n"
     "  --no-length          omit the length and fade tags\n"
@@ -253,6 +257,12 @@ int RipInput(const std::string& input, const Options& o, xsflib::cli::FileNameRe
     try
     {
         const ntdlib::ntr::Rom rom = ntdlib::ntr::Rom::Parse(image);
+        const std::vector<std::string_view> universomo_games = twosf::rip::SupportedGames();
+        if (std::ranges::find(universomo_games, rom.Header().game_code) == universomo_games.end())
+        {
+            return twosf::tools::RipSdat(input, rom, o, o.effects, names);
+        }
+
         std::string error;
         const twosf::rip::UniversomoProfile* profile = twosf::rip::FindProfile(rom, error);
         if (profile == nullptr)

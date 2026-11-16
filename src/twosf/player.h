@@ -46,6 +46,7 @@ public:
 
     static constexpr const char* kNotPlayable = "the set holds no cartridge image";
     static constexpr const char* kStartFailure = "the image failed to boot: ";
+    static constexpr const char* kNoCode = "the image has no ARM9 or ARM7 code";
     static constexpr const char* kStepFailure = "the emulation failed: ";
 
     // Loads the track at `path` with its libraries, as LoadTwosf does. Bad sets are rejected here. The error tells why.

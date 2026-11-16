@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.20)
-project(twosf VERSION 0.1.0 LANGUAGES C CXX)
+project(twosf VERSION 0.2.0 LANGUAGES C CXX)
 
 # xsflib is a library for players and rippers of the PSF family. It's a submodule. Its XsflibProject.cmake sets what a
 # project built on it starts with: C++20, a release build by default, the static C runtime, the options that keep the
@@ -50,22 +50,26 @@ xsflib_add_version(2sfplay VERSION ${twosf_VERSION} DEFINE TWOSF_VERSION DESCRIP
 xsflib_add_utf8_manifest(2sfplay)
 xsflib_add_droplet(2sfplay VERSION ${twosf_VERSION})
 
-# The ripper's parts: the games' profiles, the stub, the library's image, the files of a set and the time to a song's
-# first tick on ntdlib's model of the DS.
+# The ripper's parts: the games' profiles, the stubs, the libraries' images, the files of a set, the time to a song's
+# first tick, and the runs of an SDAT game's minis on ntdlib's model of the DS.
 add_library(twosf_rip STATIC
     src/rip/profile.cpp
     src/rip/profile.h
+    src/rip/sdat_set.cpp
+    src/rip/sdat_set.h
     src/rip/set.cpp
     src/rip/set.h
 )
 target_include_directories(twosf_rip PUBLIC src)
 target_link_libraries(twosf_rip PUBLIC twosf_format ntdlib::ntr ntdlib::ntr_machine ntdlib::arm_assembler
-                      ntdlib::universomo)
+                      ntdlib::universomo ntdlib::ntr_sound_routines ntdlib::ntr_rip)
 target_compile_options(twosf_rip PRIVATE ${TWOSF_WARNINGS})
 
 # 2sfrip rips a game's music into a 2SF set. On Windows, its code page is UTF-8.
-add_executable(2sfrip src/tools/2sfrip.cpp)
-target_link_libraries(2sfrip PRIVATE twosf_rip xsflib::rip xsflib::console)
+add_executable(2sfrip src/tools/2sfrip.cpp src/tools/sdat_rip.cpp src/tools/sdat_rip.h)
+target_include_directories(2sfrip PRIVATE src)
+# xsflib::rip comes through ntdlib::ntr_rip. A second mention makes ld warn of a duplicate library.
+target_link_libraries(2sfrip PRIVATE twosf_rip xsflib::console)
 target_compile_options(2sfrip PRIVATE ${TWOSF_WARNINGS})
 xsflib_add_version(2sfrip VERSION ${twosf_VERSION} DEFINE TWOSF_VERSION DESCRIPTION "2SF ripper" PRODUCT 2sf
                    COPYRIGHT "Copyright (c) 2026 the 2sf authors. MIT licence.")
@@ -78,6 +82,8 @@ if (TWOSF_TESTS)
     # The unit tests: twosf_<name>_test from tests/<name>_test.cpp, registered as twosf_<name>.
     xsflib_add_project_test(twosf twosf_file twosf_format)
     xsflib_add_project_test(twosf rip twosf_rip)
+    xsflib_add_project_test(twosf sdat_set twosf_rip)
+    xsflib_add_project_test(twosf player twosf_player)
 
     # 2sfplay reports the version it was built as.
     xsflib_add_version_test(2sfplay VERSION ${twosf_VERSION})
