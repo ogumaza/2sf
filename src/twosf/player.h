@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-// The player: a 2SF track with its libraries, booted as a cartridge image on a model of the DS with both CPUs
-// (ntdlib's ntr::Machine). The game's code runs and the sound unit's output is the track.
+// The player: a 2SF track with its libraries, booted as a cartridge image on a model of the DS with both CPUs (ntdlib's
+// ntr::Machine). The game's code runs and the sound unit's output is the track.
 //
 //     twosf::Player player;
 //     if (!player.Load(path, xsflib::psf::ReadWholeFile) || !player.Start())
@@ -10,8 +10,8 @@
 //     }
 //     const size_t got = player.Render(frames, count);
 //
-// Player is a PlayerBase of xsflib, so it has Load, Start, Render, GetState, Error, GetTags, LengthMs, FadeMs and
-// Volume from there. The caller applies the length, the fade and the volume. xsflib's Playback does that.
+// Player is a PlayerBase of xsflib. Load, Start, Render, GetState, Error, GetTags, LengthMs, FadeMs and Volume come
+// from there. The caller applies the length, the fade and the volume. xsflib's Playback does that.
 //
 // The DS's sound unit gives a sample every 1024 cycles of its clock of 33,513,982 Hz: 32,728.498 samples a second.
 // kSampleRate is that rate as a whole number. The frames are the unit's, one for one.
@@ -25,12 +25,12 @@
 #include <string>
 #include <vector>
 
-#include "xsflib/player/player.h"
-#include "xsflib/psf/psf.h"
-
 #include "ntdlib/ntr/machine.h"
 #include "ntdlib/ntr/rom.h"
 #include "ntdlib/ntr/sound.h"
+#include "xsflib/player/playback.h"
+#include "xsflib/player/player.h"
+#include "xsflib/psf/psf.h"
 
 #include "twosf/twosf_file.h"
 
@@ -44,12 +44,16 @@ public:
 
     static constexpr int kSampleRate = 32728;
 
+    // A rip's length tags count from the first sound: the first sample that isn't 0.
+    static constexpr xsflib::player::LengthOrigin kLengthOrigin = xsflib::player::LengthOrigin::kFirstSound;
+
     static constexpr const char* kNotPlayable = "the set holds no cartridge image";
     static constexpr const char* kStartFailure = "the image failed to boot: ";
     static constexpr const char* kNoCode = "the image has no ARM9 or ARM7 code";
     static constexpr const char* kStepFailure = "the emulation failed: ";
 
-    // Loads the track at `path` with its libraries, as LoadTwosf does. Bad sets are rejected here. The error tells why.
+    // Loads the track at `path` with its libraries, as LoadTwosf does. Bad sets are rejected here. Error() returns the
+    // reason.
     static std::optional<std::string> LoadFile(const std::string& path, const xsflib::psf::FileReader& reader,
                                                LoadedTwosf& set);
 

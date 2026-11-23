@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: MIT
 
-# A vX.Y.Z tag publishes a Windows x64 release. X.Y.Z must match CMakeLists.txt, with notes in
-# docs/release-notes/X.Y.Z.md. The 2sfrip-X.Y.Z-win-x64.zip package contains 2sfrip.exe, README.md, LICENSE and
-# THIRD-PARTY-NOTICES.md.
-#
-# A manual run (Actions > Release > Run workflow) builds the same zip and uploads it as a workflow artifact, without
-# publishing anything.
+# A vX.Y.Z tag publishes a release. X.Y.Z must match CMakeLists.txt. The notes must be in docs/release-notes/X.Y.Z.md.
+# Builds the Windows programs, the foobar2000 component and the XMPlay plugin with clang-cl. Attaches three downloads:
+#   2sf-X.Y.Z-win-x64.zip                   2sfrip and 2sfplay for 64-bit Windows, with README.md and the licences
+#   foo_input_2sfplay-X.Y.Z.fb2k-component  the component for 64-bit and 32-bit foobar2000: the 32-bit DLL at the
+#                                           top level and the 64-bit one in x64/, with the licences
+#   xmp-2sfplay-X.Y.Z.zip                   the XMPlay plugin, a 32-bit DLL, with the licences
+# Manual runs (Actions > Release > Run workflow) build the same files as an artifact without publishing a release.
+# The build downloads the foobar2000 SDK from foobar2000.org (externals/xsflib/ci/foobar2000-sdk) and the XMPlay plugin
+# SDK from un4seen.com (externals/xsflib/ci/xmplay-sdk).
 name: Release
 
 on:
@@ -17,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  # Read the version and check for a matching tag and release notes.
+  # Read the version and check that the tag matches and release notes exist.
   version:
     runs-on: ubuntu-24.04
     outputs:
@@ -34,8 +37,19 @@ jobs:
 
   windows:
     needs: version
-    name: Windows x64
+    name: Windows ${{ matrix.arch }}
     runs-on: windows-2025
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            package: win-x64
+          # XMPlay is a 32-bit program. Its plugin builds in the 32-bit job only.
+          - arch: Win32
+            package: win32
+            xmplay: true
+            xmplay-target: xmp-2sfplay
+            xmplay-file: build/plugins/xmplay/Release/xmp-2sfplay.dll
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,12 +58,17 @@ jobs:
       - uses: ./externals/xsflib/ci/release-windows
         with:
           version: ${{ needs.version.outputs.version }}
-          cmake: -A x64 -T ClangCL -DTWOSF_TESTS=OFF
-          targets: 2sfrip
-          programs: 2sfrip
-          files: build/Release/2sfrip.exe
-          artifact: win-x64
+          cmake: -A ${{ matrix.arch }} -T ClangCL
+          targets: 2sfrip 2sfplay foo_input_2sfplay ${{ matrix.xmplay-target }}
+          programs: 2sfrip 2sfplay
+          files: >-
+            build/Release/2sfrip.exe build/Release/2sfplay.exe build/plugins/foobar2000/Release/foo_input_2sfplay.dll
+            ${{ matrix.xmplay-file }}
+          artifact: ${{ matrix.package }}
+          foobar2000: true
+          xmplay: ${{ matrix.xmplay || false }}
 
+  # zip, run on Linux, writes the names in the packages with forward slashes. foobar2000 requires those in a component.
   package:
     needs: [version, windows]
     runs-on: ubuntu-24.04
@@ -60,10 +79,13 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: ./externals/xsflib/ci/package-converter
+      - uses: ./externals/xsflib/ci/package-player
         with:
-          program: 2sfrip
+          format: 2sf
           version: ${{ needs.version.outputs.version }}
+          programs: 2sfrip 2sfplay
+          component: foo_input_2sfplay
+          xmplay-plugin: xmp-2sfplay
 
       - uses: ./externals/xsflib/ci/release-publish
         with:

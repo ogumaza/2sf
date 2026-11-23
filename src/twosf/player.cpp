@@ -60,7 +60,7 @@ bool Player::RunStep()
 
 bool Player::Finished() const
 {
-    // The game's code never tells the player that a track is over. The length tag ends it.
+    // The game's code never signals the end of a track. The length tag ends it.
     return false;
 }
 

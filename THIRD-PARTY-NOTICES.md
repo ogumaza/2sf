@@ -5,15 +5,19 @@
 | Component | Licence | Use in 2sf |
 |---|---|---|
 | xsflib, Copyright (c) 2026 the xsflib authors | MIT (`externals/xsflib/LICENSE`) | In `externals/xsflib`, a submodule, compiled into every 2sf program: byte order, files, the PSF container, the frame of the rip tool, and for `2sfplay` the playback framework and the command-line frame. |
-| ntdlib, Copyright (c) 2026 the ntdlib authors | MIT (`externals/ntdlib/LICENSE`) | In `externals/ntdlib`, a submodule, compiled into every 2sf program: the DS's cartridge images, the model of the DS that runs a game's code, the ARM interpreter and the ARM assembler of the stub, and the readers of Universomo's song files. |
-| seqlib, Copyright (c) 2026 the seqlib authors | MIT (`externals/xsflib/externals/seqlib/LICENSE`) | In `externals/xsflib/externals/seqlib`, a submodule of xsflib. Only the tests use it: their checks come from it, through `xsflib::testing`. |
-| [zlib](https://zlib.net), Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler | zlib | The PSF container's compression in every 2sf program, through xsflib. The installed copy is used if there is one. Otherwise v1.4 is downloaded when configuring. |
+| ntdlib, Copyright (c) 2026 the ntdlib authors | MIT (`externals/ntdlib/LICENSE`) | In `externals/ntdlib`, a submodule, compiled into every 2sf program: the DS's cartridge images, the model of the DS that runs a game's code, the ARM interpreter and the ARM assembler of the stub, and in `2sfrip` the search of the SDK's sound routines, the readers of the sound data and the length analyses of the drivers. |
+| seqlib, Copyright (c) 2026 the seqlib authors | MIT (`externals/xsflib/externals/seqlib/LICENSE`) | In `externals/xsflib/externals/seqlib`, a submodule of xsflib. `2sfrip` names the minis, the second libraries and the game's files with its safe file names. The checks of the tests come from it, through `xsflib::testing`. |
+| [zlib](https://zlib.net), Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler | zlib | The compression of the PSF container in every 2sf program, through xsflib, and the CRC-32 with which `2sfrip` finds a song in a hashed sound pack. The installed copy is used if there is one. Otherwise v1.4 is downloaded when configuring. |
 | [libFLAC](https://xiph.org/flac/), Copyright the Xiph.Org Foundation | BSD-3-Clause | FLAC output in `2sfplay`. The installed copy is used if there is one. Otherwise 1.5.0 is downloaded when configuring. |
+| [foobar2000 SDK](https://www.foobar2000.org/SDK), Copyright Peter Pawlowski | BSD-style (the SDK's `sdk-license.txt`, and `pfc-license.txt` for its pfc library) | Only for `plugins/foobar2000`. Not included here. The SDK is supplied when building the component. |
+| [XMPlay plugin SDK](https://www.un4seen.com/xmplay.html), from Un4seen Developments | None stated | Only for `plugins/xmplay`. Not included here. The SDK is supplied when building the plugin. CI downloads it from un4seen.com. The plugin uses only the SDK's declarations of XMPlay's interface. |
 
 Binary distributions must include the MIT notices of 2sf, xsflib and ntdlib. Every program contains xsflib and ntdlib.
-The libFLAC notice is required when libFLAC is linked in: `2sfplay` links it, and `2sfrip` doesn't. Shipping `LICENSE`
-and this file meets these requirements. The licence texts are at the end of this file. zlib's licence requires no
-notice in binaries. seqlib's checks go only into tests.
+`2sfrip` also contains seqlib and requires its MIT notice. `2sfplay` and the plugins don't contain seqlib. The libFLAC
+notice is required when libFLAC is linked in: `2sfplay` links it, and `2sfrip` and the plugins don't. Shipping
+`LICENSE` and this file meets these requirements. The licence texts are at the end of this file. The licences of zlib,
+the foobar2000 SDK and its pfc library require no notice in binaries. No code from the XMPlay plugin SDK goes into the
+XMPlay plugin.
 
 ## Licence texts
 

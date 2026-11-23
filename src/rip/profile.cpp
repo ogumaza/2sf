@@ -6,9 +6,12 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "xsflib/bytes.h"
+
+#include "rip/library_name.h"
 
 namespace twosf::rip
 {
@@ -16,14 +19,10 @@ namespace twosf::rip
 namespace
 {
 
-// Beat City (USA), NTR-BEYE. Every address is in its ARM9 binary, which the cartridge stores uncompressed.
+// Beat City (USA), NTR-BEYE. Every address is in the game's ARM9 binary. The cartridge stores the binary uncompressed.
+// The game plays song 105 at its title screen.
 const UniversomoProfile kBeatCity = {
     .game_code = "BEYE",
-    .product_code = "NTR-BEYE-USA",
-    .game = "Beat City",
-    // The first release, in North America.
-    .year = "2010-04-20",
-    .copyright = "Universomo, THQ",
     .engine = 0x020E0DBC,
     .main_loop = {0x020350E0, {0x10, 0x40, 0x2D, 0xE9, 0x20, 0xD0, 0x4D, 0xE2}},
     .main_loop_size = 0x2B0,
@@ -38,7 +37,6 @@ const UniversomoProfile kBeatCity = {
     // melonDS but plays nothing.
     .kept_suffixes = {".ums", "/samplebank.usb", "/card-removed-message.png"},
     .sound_table = "audio",
-    .title_song = 105,
 };
 
 const UniversomoProfile* const kProfiles[] = {&kBeatCity};
@@ -72,6 +70,11 @@ bool SecureAreaDecrypted(const ntdlib::ntr::Rom& rom)
            xsflib::LoadLe32(binary.data() + 4) == kDecryptedMarker;
 }
 
+std::string SongLabel(uint32_t song, bool music)
+{
+    return (music ? "Song " : "Effect ") + std::to_string(song);
+}
+
 const UniversomoProfile* FindProfile(const ntdlib::ntr::Rom& rom, std::string& error)
 {
     for (const UniversomoProfile* profile : kProfiles)
@@ -81,19 +84,13 @@ const UniversomoProfile* FindProfile(const ntdlib::ntr::Rom& rom, std::string& e
             continue;
         }
 
-        if (!SecureAreaDecrypted(rom))
-        {
-            error = "the image's secure area is encrypted. Decrypt the image, then rip it.";
-            return nullptr;
-        }
-
         for (const Routine* routine :
              {&profile->main_loop, &profile->skipped, &profile->load, &profile->start, &profile->update,
               &profile->wait_vblank, &profile->receive_reply, &profile->flush})
         {
             if (!Matches(rom, *routine))
             {
-                error = "the game's code differs from the profile of " + std::string(profile->game) +
+                error = "the game's code differs from the profile of " + LibraryBase(profile->game_code) +
                         ". Only the first US release is supported.";
                 return nullptr;
             }

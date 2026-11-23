@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT
+
+// foo_input_2sfplay: foobar2000 input component for 2SF (.mini2sf and .2sf), from xsflib's input template
+// (xsflib/foobar2000/input.h). The template's comment says what the component does. This file defines the decoder's
+// name and GUIDs. plugin_traits.h defines 2SF's other traits.
+//
+// The player (src/twosf) boots the set's cartridge image on ntdlib's model of the DS. The game's code makes the sound.
+//
+// Build: see plugins/foobar2000/README.md (clang-cl on Windows, or Apple Clang on macOS, with the foobar2000 SDK).
+
+#include "xsflib/foobar2000/input.h"
+#include <SDK/foobar2000.h>
+
+#include "../plugin_traits.h"
+
+namespace
+{
+
+struct Traits : twosf::PluginTraits
+{
+    static constexpr const char* kDecoderName = "2SF decoder (2sfplay)";
+
+    // {794B54DD-E57E-4E8C-ADBD-598675FB3617}
+    static constexpr GUID kInputGuid = {0x794b54dd, 0xe57e, 0x4e8c, {0xad, 0xbd, 0x59, 0x86, 0x75, 0xfb, 0x36, 0x17}};
+
+    // Advanced preferences entries, under Decoding > 2SF decoder (2sfplay).
+    static constexpr GUID kBranchGuid = {0x718acff6, 0x68fa, 0x44a4, {0x85, 0xc3, 0xd1, 0xf1, 0xac, 0x54, 0x71, 0xc0}};
+    static constexpr GUID kLengthGuid = {0x245a4407, 0x198e, 0x47e3, {0x89, 0x0b, 0x0a, 0xdb, 0xe5, 0x66, 0x3c, 0xad}};
+    static constexpr GUID kFadeGuid = {0x98d72ef7, 0xe3b6, 0x49d6, {0xb0, 0xa9, 0x9b, 0xe0, 0x8c, 0x07, 0xe5, 0xab}};
+    static constexpr GUID kFadeExponentGuid = {
+        0x5c601163, 0xa777, 0x46fc, {0xba, 0x46, 0x25, 0xf3, 0x0c, 0xfc, 0x07, 0xdb}};
+    static constexpr GUID kEndlessGuid = {0x1bf42ae8, 0xda78, 0x4917, {0xb4, 0xdb, 0x77, 0x87, 0x99, 0x0f, 0x54, 0x09}};
+    static constexpr GUID kRenderAheadGuid = {
+        0xa10478ad, 0xc39a, 0x4db9, {0xb3, 0xa7, 0xad, 0x51, 0xd2, 0xd2, 0xbc, 0x48}};
+
+    // The settings that shape a track like a track of an album (xsflib/player/settings.h).
+    static constexpr GUID kSkipSilenceGuid = {
+        0x2eac3832, 0xef3f, 0x4495, {0xa5, 0x85, 0xdb, 0xd0, 0xdd, 0x1c, 0xf5, 0x83}};
+    static constexpr GUID kStartSilenceGuid = {
+        0xce468ca4, 0x9c93, 0x4dfb, {0x81, 0x52, 0x5d, 0xcc, 0xf0, 0x4f, 0xd1, 0x1f}};
+    static constexpr GUID kLoopsGuid = {0x8c2afe74, 0x7192, 0x40d2, {0x9e, 0xa2, 0xe3, 0x81, 0xc2, 0x6d, 0xf1, 0x6c}};
+    static constexpr GUID kLongLoopGuid = {
+        0xdcb0ba3f, 0xcac5, 0x4834, {0xbf, 0xb3, 0x46, 0x6f, 0x1e, 0xa7, 0x05, 0xe0}};
+    static constexpr GUID kLoopFadeGuid = {
+        0xe5c48e25, 0x97a5, 0x4ba9, {0xa1, 0xdc, 0x39, 0x12, 0xba, 0xfe, 0xe9, 0xec}};
+    static constexpr GUID kEndSilenceGuid = {
+        0x2abcc2c0, 0x86f2, 0x4ea6, {0x83, 0xf6, 0x58, 0x9c, 0x50, 0x45, 0xac, 0x59}};
+    static constexpr GUID kIgnoreTagsGuid = {
+        0xff393575, 0x69ff, 0x485c, {0xb3, 0xf9, 0x4e, 0x85, 0x21, 0x0f, 0x44, 0x5b}};
+    static constexpr GUID kSkipEndGuid = {0x6812a6af, 0x735c, 0x47c2, {0xa1, 0xb7, 0xc8, 0x82, 0xf3, 0x6c, 0xe9, 0xd5}};
+};
+
+xsflib::foobar2000::Settings<Traits> g_settings;
+input_singletrack_factory_t<xsflib::foobar2000::Input<Traits>> g_input_2sf_factory;
+
+} // namespace
+
+DECLARE_FILE_TYPE("2SF files", "*.MINI2SF;*.2SF");
+
+DECLARE_COMPONENT_VERSION("2SF Decoder (2sfplay)", twosf::PluginTraits::kVersion, twosf::PluginTraits::kAbout);
+
+VALIDATE_COMPONENT_FILENAME("foo_input_2sfplay.dll");

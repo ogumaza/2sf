@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -16,10 +16,10 @@
 #include "ntdlib/arm/assembler.h"
 #include "ntdlib/ntr/arm7.h"
 #include "ntdlib/ntr/machine.h"
+#include "ntdlib/ntr/main_memory.h"
 #include "ntdlib/ntr/sound.h"
+#include "seqlib/file_name.h"
 #include "xsflib/bytes.h"
-
-#include "twosf/twosf_file.h"
 
 namespace twosf::rip
 {
@@ -32,8 +32,7 @@ namespace arm = ntdlib::arm;
 // bx lr: the first instruction of the routine that the set skips.
 constexpr uint32_t kReturn = 0xE12FFF1E;
 
-// The start of the DS's main memory, and the offset of the driver's count of loaded songs in its object.
-constexpr uint32_t kMainMemory = 0x02000000;
+// The offset of the driver's count of loaded songs in its object.
 constexpr uint32_t kSongCount = 0x400;
 
 // The time that FirstTickMs waits for the first update.
@@ -71,7 +70,7 @@ uint32_t Text(const char (&text)[5])
            uint32_t(uint8_t(text[3])) << 24;
 }
 
-// Copies `size` bytes of `rom` at `offset` into `image`, which ends at the cartridge's used size.
+// Copies `size` bytes of `rom` at `offset` into `image`. `image` ends at the cartridge's used size.
 bool Keep(const ntdlib::ntr::Rom& rom, uint32_t offset, uint32_t size, std::vector<uint8_t>& image)
 {
     if (offset > image.size() || size > image.size() - offset)
@@ -161,8 +160,8 @@ Stub BuildStub(const UniversomoProfile& profile)
     a.Bind(digit);
     EmitDigit(a);
 
-    // The data, after the literal pool: the path with room for 3 digits and the extension, the extension alone and
-    // the two words. The loop flag follows the song's number, as a mini writes them in one block.
+    // The data, after the literal pool: the path with room for 3 digits and the extension, the extension alone and the
+    // two words. A mini writes the song's number and the loop flag in one block. The flag therefore follows the number.
     a.Pool();
     a.Bind(path);
     a.Word(Text("/au\0"));
@@ -172,7 +171,7 @@ Stub BuildStub(const UniversomoProfile& profile)
     a.Word(Text(".ums"));
     a.Word(0);
     a.Bind(song);
-    a.Word(profile.title_song);
+    a.Word(0);
     a.Bind(loop);
     a.Word(1);
 
@@ -184,7 +183,29 @@ Stub BuildStub(const UniversomoProfile& profile)
     return stub;
 }
 
-std::optional<SetImage> MakeSetImage(const ntdlib::ntr::Rom& rom, const UniversomoProfile& profile, std::string& error)
+MainLoopBoot BootToMainLoop(const ntdlib::ntr::Rom& rom, const UniversomoProfile& profile,
+                            const ntdlib::ntr::BackupMemory& backup)
+{
+    MainLoopBoot boot;
+    const auto machine = std::make_unique<ntdlib::ntr::Machine>(rom, backup);
+    machine->on_card_read = [&](uint32_t address, uint32_t bytes)
+    {
+        for (const uint32_t id : rom.FilesIn(address, address + bytes))
+        {
+            boot.files.insert(id);
+        }
+    };
+    machine->Arm9().SetStopAddress(profile.main_loop.address);
+
+    std::vector<ntdlib::ntr::SoundOutput> sound;
+    boot.reached = machine->Run(kBootLimitSeconds * ntdlib::ntr::kSystemClockHz, sound);
+    boot.clock = machine->Clock();
+
+    return boot;
+}
+
+std::optional<SetImage> MakeSetImage(const ntdlib::ntr::Rom& rom, const UniversomoProfile& profile,
+                                     const std::set<uint32_t>& boot_files, std::string& error)
 {
     const ntdlib::ntr::RomHeader& header = rom.Header();
     const Stub stub = BuildStub(profile);
@@ -202,7 +223,7 @@ std::optional<SetImage> MakeSetImage(const ntdlib::ntr::Rom& rom, const Universo
         return std::nullopt;
     }
 
-    // The header, the binaries, the file system's tables and the files that the music reads.
+    // The header, the binaries, the file system's tables, the files that the music reads and the boot's files.
     SetImage set;
     set.image.assign(std::min<std::size_t>(header.used_size, rom.Image().size()), 0);
     bool kept = Keep(rom, 0, header.header_size, set.image) &&
@@ -217,7 +238,7 @@ std::optional<SetImage> MakeSetImage(const ntdlib::ntr::Rom& rom, const Universo
         const bool music = std::any_of(profile.kept_suffixes.begin(), profile.kept_suffixes.end(),
                                        [&file](std::string_view suffix) { return EndsWith("/" + file.path, suffix); });
         // An overlay is a file without a path. The code may load one before the music plays.
-        if (music || file.path.empty())
+        if (music || file.path.empty() || boot_files.contains(file.id))
         {
             kept = kept && Keep(rom, file.start, file.end - file.start, set.image);
         }
@@ -249,15 +270,8 @@ void SetSong(SetImage& set, uint32_t song, bool loops)
     xsflib::StoreLe32(set.image.data() + set.loop_word, loops ? 1 : 0);
 }
 
-std::vector<uint8_t> LibraryFile(const SetImage& set)
+Block MiniBlock(const SetImage& set, uint32_t song, bool loops)
 {
-    return WriteTwosf({0, set.image}, {});
-}
-
-std::vector<uint8_t> MiniFile(const SetImage& set, uint32_t song, bool loops, const std::string& library,
-                              xsflib::psf::Tags tags)
-{
-    // A song that loops keeps the library's loop flag of 1.
     if (set.loop_word != set.song_word + 4)
     {
         throw std::logic_error("the stub's loop flag doesn't follow the song's number");
@@ -270,51 +284,21 @@ std::vector<uint8_t> MiniFile(const SetImage& set, uint32_t song, bool loops, co
         xsflib::AppendLe32(block.data, 0);
     }
 
-    tags["_lib"] = library;
-
-    return WriteTwosf(block, tags);
-}
-
-LengthTags SongLengthTags(long long length_ms, bool loops)
-{
-    char text[32];
-    if (loops)
-    {
-        const long long seconds = (length_ms + 500) / 1000;
-        std::snprintf(text, sizeof text, "%lld:%02lld", seconds / 60, seconds % 60);
-        return {text, "10"};
-    }
-
-    std::snprintf(text, sizeof text, "%lld:%02lld.%03lld", length_ms / 60000, length_ms / 1000 % 60, length_ms % 1000);
-
-    return {text, "1"};
+    return block;
 }
 
 std::string FileTitle(const std::string& title)
 {
-    std::string name;
-    for (const char c : title)
-    {
-        const bool refused =
-            static_cast<unsigned char>(c) < 0x20 || std::string_view("<>:\"/\\|?*").find(c) != std::string_view::npos;
-        name += refused ? '_' : c;
-    }
-
-    // Windows drops a name's final dots and spaces.
-    while (!name.empty() && (name.back() == '.' || name.back() == ' '))
-    {
-        name.pop_back();
-    }
-
-    return name;
+    return seqlib::SafeFileName(title, {.trailing = seqlib::TrailingRule::kRemoveAll});
 }
 
-double FirstTickMs(const SetImage& set, const UniversomoProfile& profile, uint32_t song, bool loops)
+double FirstTickMs(const SetImage& set, const UniversomoProfile& profile, uint32_t song, bool loops,
+                   const ntdlib::ntr::BackupMemory& backup)
 {
     SetImage played = set;
     SetSong(played, song, loops);
     const ntdlib::ntr::Rom rom = ntdlib::ntr::Rom::Parse(played.image);
-    const auto machine = std::make_unique<ntdlib::ntr::Machine>(rom);
+    const auto machine = std::make_unique<ntdlib::ntr::Machine>(rom, backup);
     machine->Arm9().SetStopAddress(profile.update.address);
 
     std::vector<ntdlib::ntr::SoundOutput> sound;
@@ -326,7 +310,7 @@ double FirstTickMs(const SetImage& set, const UniversomoProfile& profile, uint32
     }
 
     const std::span<uint8_t> memory = machine->MainMemory();
-    if (xsflib::LoadLe32(memory.data() + (profile.engine - kMainMemory) + kSongCount) == 0)
+    if (xsflib::LoadLe32(memory.data() + (profile.engine - ntdlib::ntr::kMainMemory) + kSongCount) == 0)
     {
         throw std::runtime_error("the driver has loaded no song by its first update");
     }

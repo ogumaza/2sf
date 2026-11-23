@@ -29,20 +29,16 @@ struct Routine
 // starts it, then calls the driver's update once a frame as the main loop does.
 struct UniversomoProfile
 {
-    std::string_view game_code;    // such as "BEYE"
-    std::string_view product_code; // the base of the library's name, such as "NTR-BEYE-USA"
-    std::string_view game;         // the game's name for the tags
-    std::string_view year;
-    std::string_view copyright; // "Developer, Publisher"
+    std::string_view game_code; // such as "BEYE"
 
     // The driver's object, whose address each of the driver's routines takes first.
     uint32_t engine = 0;
 
-    // The game's main loop, which the stub replaces, and the bytes that the stub may take there.
+    // The game's main loop, and the bytes that the stub may take there. The stub replaces the loop.
     Routine main_loop;
     uint32_t main_loop_size = 0;
 
-    // A routine that the main function calls before the main loop, which the set doesn't require. It returns at once
+    // A routine that the main function calls before the main loop. The set doesn't require it, and it returns at once
     // in the set.
     Routine skipped;
 
@@ -61,17 +57,20 @@ struct UniversomoProfile
     // The files that the set reads, by the end of their paths.
     std::vector<std::string_view> kept_suffixes;
 
-    // The path of the table of sounds, and the number of the song that the game plays at its title screen.
+    // The path of the table of sounds.
     std::string_view sound_table;
-    uint32_t title_song = 0;
 };
 
+// The label of song `song`, for its title tag and its file's name: "Song N" for music and "Effect N" for a sound
+// effect.
+std::string SongLabel(uint32_t song, bool music);
+
 // The profile of `rom`, or null with `error` set when 2sfrip supports no game with its code, or when its code differs
-// from the profile's.
+// from the profile's. The caller has checked that the secure area is decrypted (SecureAreaDecrypted).
 const UniversomoProfile* FindProfile(const ntdlib::ntr::Rom& rom, std::string& error);
 
-// Whether the ARM9 binary starts with 0xE7FFDEFF twice, as it does once the secure area is decrypted. A set runs the
-// game's start-up, which the encrypted area would crash.
+// Whether the ARM9 binary starts with 0xE7FFDEFF twice. It does once the secure area is decrypted. A set runs the
+// game's start-up, and the encrypted area would crash it.
 bool SecureAreaDecrypted(const ntdlib::ntr::Rom& rom);
 
 // The game codes of the games that 2sfrip supports.
